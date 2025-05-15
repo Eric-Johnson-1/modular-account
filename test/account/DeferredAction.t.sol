@@ -278,11 +278,10 @@ contract DeferredActionTest is AccountTestBase {
 
         // Install a new validation, with a validation-associated exec hook.
 
-        // To use `vm.expectCall` with both the SMA and non-SMA tests, we need a new module for the second run.
-        if (_isSMATest) {
-            ExecutionManifest memory m;
-            mockModule = new MockModule(m);
-        }
+        // To use `vm.expectCall` with all four test cases (non-sma, sma, non-sma+executeUserOp,
+        // sma+executeUserOp), we need a new module for each run.
+        ExecutionManifest memory m;
+        mockModule = new MockModule{salt: bytes32(vm.randomUint())}(m);
 
         (address owner2, uint256 owner2Key) = makeAddrAndKey("owner2");
         uint32 validation2EntityId = 1;

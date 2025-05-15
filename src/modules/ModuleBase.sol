@@ -54,12 +54,18 @@ abstract contract ModuleBase is ERC165, IModule {
     }
 
     /// @dev help method that returns extracted selector and calldata. If selector is executeUserOp, return the
-    /// selector and calldata of the inner call.
-    function _getSelectorAndCalldata(bytes calldata data) internal pure returns (bytes4, bytes memory) {
+    /// selector and calldata of the inner call. This is unique for both validation and execution phases.
+    /// During validation phase, the `data` parameter is the uo's calldata.
+    function _validationPhaseGetSelectorAndCalldata(bytes calldata data)
+        internal
+        pure
+        returns (bytes4, bytes memory)
+    {
         bytes4 selector = bytes4(data[:4]);
         if (selector == IAccountExecute.executeUserOp.selector) {
-            (PackedUserOperation memory uo,) = abi.decode(data[4:], (PackedUserOperation, bytes32));
-            bytes memory finalCalldata = uo.callData;
+            // Copy the data to memory
+            bytes memory finalCalldata = data;
+
             // Bytes arr representation: [bytes32(len), bytes4(executeUserOp.selector), bytes4(actualSelector),
             // bytes(actualCallData)]
             assembly ("memory-safe") {
@@ -71,7 +77,40 @@ abstract contract ModuleBase is ERC165, IModule {
                 // Move the finalCalldata pointer by 8
                 finalCalldata := add(finalCalldata, 8)
 
-                // Shorten bytes arry by 8 by: store length - 8 into the new pointer location
+                // Shorten bytes array by 8 by: store length - 8 into the new pointer location
+                mstore(finalCalldata, sub(len, 8))
+            }
+            return (selector, finalCalldata);
+        }
+        return (selector, data[4:]);
+    }
+
+    /// @dev help method that returns extracted selector and calldata. If selector is executeUserOp, return the
+    /// selector and calldata of the inner call. This is unique for both validation and execution phases.
+    /// During execution phase, the `data` parameter is the full msg.data, or the abi-encoded packed user operation
+    /// and the user operation hash.
+    function _executionPhaseGetSelectorAndCalldata(bytes calldata data)
+        internal
+        pure
+        returns (bytes4, bytes memory)
+    {
+        bytes4 selector = bytes4(data[:4]);
+        if (selector == IAccountExecute.executeUserOp.selector) {
+            (PackedUserOperation memory uo,) = abi.decode(data[4:], (PackedUserOperation, bytes32));
+            bytes memory finalCalldata = uo.callData;
+
+            // Bytes arr representation: [bytes32(len), bytes4(executeUserOp.selector), bytes4(actualSelector),
+            // bytes(actualCallData)]
+            assembly ("memory-safe") {
+                // Copy actualSelector into a new var
+                selector := shl(224, mload(add(finalCalldata, 8)))
+
+                let len := mload(finalCalldata)
+
+                // Move the finalCalldata pointer by 8
+                finalCalldata := add(finalCalldata, 8)
+
+                // Shorten bytes array by 8 by: store length - 8 into the new pointer location
                 mstore(finalCalldata, sub(len, 8))
             }
             return (selector, finalCalldata);

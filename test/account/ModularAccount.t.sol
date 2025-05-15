@@ -589,7 +589,7 @@ contract ModularAccountTest is AccountTestBase {
         vm.expectRevert(ModularAccountBase.CreateFailed.selector);
         // re-deploying with same salt should revert
         vm.prank(address(entryPoint));
-        account1.performCreate(0, initCode, true, salt);
+        account1.performCreate{gas: 50_000_000}(0, initCode, true, salt);
     }
 
     function test_assertCallerEntryPoint() public withSMATest {

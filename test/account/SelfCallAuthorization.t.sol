@@ -58,7 +58,7 @@ contract SelfCallAuthorizationTest is AccountTestBase {
         vm.stopPrank();
     }
 
-    function test_selfCallFails_userOp() public withSMATest {
+    function test_selfCallFails_userOp() public withSMATestAndExecuteUserOpWrapping {
         // Uses global validation
         _runUserOp(
             abi.encodeCall(ComprehensiveModule.foo, ()),
@@ -98,7 +98,7 @@ contract SelfCallAuthorizationTest is AccountTestBase {
         );
     }
 
-    function test_selfCallPrivilegeEscalation_prevented_userOp() public withSMATest {
+    function test_selfCallPrivilegeEscalation_prevented_userOp() public withSMATestAndExecuteUserOpWrapping {
         // Using global validation, self-call bypasses custom validation needed for ComprehensiveModule.foo
         _runUserOp(
             abi.encodeCall(

@@ -197,7 +197,7 @@ contract AllowlistModuleTest is CustomValidationTestBase {
         vm.stopPrank();
     }
 
-    function testFuzz_allowlistHook_userOp_single(uint256 seed) public {
+    function testFuzz_allowlistHook_userOp_single(uint256 seed) public withSMATestAndExecuteUserOpWrapping {
         AllowlistModule.AllowlistInput[] memory inputs;
         (inputs, seed) = _generateRandomizedAllowlistInput(seed);
 
@@ -211,7 +211,7 @@ contract AllowlistModuleTest is CustomValidationTestBase {
         _runExecUserOp(calls[0].target, calls[0].data, expectedError);
     }
 
-    function testFuzz_allowlistHook_userOp_batch(uint256 seed) public {
+    function testFuzz_allowlistHook_userOp_batch(uint256 seed) public withSMATestAndExecuteUserOpWrapping {
         AllowlistModule.AllowlistInput[] memory inputs;
         (inputs, seed) = _generateRandomizedAllowlistInput(seed);
 
@@ -225,7 +225,7 @@ contract AllowlistModuleTest is CustomValidationTestBase {
         _runExecBatchUserOp(calls, expectedError);
     }
 
-    function testFuzz_allowlistHook_runtime_single(uint256 seed) public {
+    function testFuzz_allowlistHook_runtime_single(uint256 seed) public withSMATest {
         AllowlistModule.AllowlistInput[] memory inputs;
         (inputs, seed) = _generateRandomizedAllowlistInput(seed);
 
@@ -243,7 +243,7 @@ contract AllowlistModuleTest is CustomValidationTestBase {
         }
     }
 
-    function testFuzz_allowlistHook_runtime_batch(uint256 seed) public {
+    function testFuzz_allowlistHook_runtime_batch(uint256 seed) public withSMATest {
         AllowlistModule.AllowlistInput[] memory inputs;
         (inputs, seed) = _generateRandomizedAllowlistInput(seed);
 

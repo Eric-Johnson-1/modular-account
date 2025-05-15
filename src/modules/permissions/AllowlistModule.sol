@@ -128,7 +128,7 @@ contract AllowlistModule is IExecutionHookModule, IValidationHookModule, ModuleB
         override
         returns (bytes memory)
     {
-        (bytes4 selector, bytes memory callData) = _getSelectorAndCalldata(data);
+        (bytes4 selector, bytes memory callData) = _executionPhaseGetSelectorAndCalldata(data);
 
         if (selector == IModularAccount.execute.selector) {
             // when calling execute or ERC-20 functions directly
@@ -153,7 +153,9 @@ contract AllowlistModule is IExecutionHookModule, IValidationHookModule, ModuleB
         assertNoData(userOp.signature)
         returns (uint256)
     {
-        checkAllowlistCalldata(entityId, userOp.callData);
+        (bytes4 selector, bytes memory callData) = _validationPhaseGetSelectorAndCalldata(userOp.callData);
+
+        checkAllowlistCalldata(selector, entityId, callData);
         return 0;
     }
 
@@ -163,7 +165,7 @@ contract AllowlistModule is IExecutionHookModule, IValidationHookModule, ModuleB
         view
         override
     {
-        checkAllowlistCalldata(entityId, data);
+        checkAllowlistCalldata(bytes4(data[:4]), entityId, data[4:]);
         return;
     }
 
@@ -283,14 +285,18 @@ contract AllowlistModule is IExecutionHookModule, IValidationHookModule, ModuleB
     /// @notice Check the allowlist status for a call payload. If the call is not allowed, this function will
     /// revert.
     /// @param entityId The entity ID to check the allowlist status for.
-    /// @param callData The call payload to check the allowlist status for. This should be a call to either
-    /// `IModularAccount.execute`, or `IModularAccount.executeBatch`.
-    function checkAllowlistCalldata(uint32 entityId, bytes calldata callData) public view {
-        if (bytes4(callData[:4]) == IModularAccount.execute.selector) {
-            (address target,, bytes memory data) = abi.decode(callData[4:], (address, uint256, bytes));
+    /// @param callDataWithoutSelector The call payload to check the allowlist status for. This should be a call to
+    /// either
+    /// `IModularAccount.execute`, or `IModularAccount.executeBatch` without selector.
+    function checkAllowlistCalldata(bytes4 selector, uint32 entityId, bytes memory callDataWithoutSelector)
+        public
+        view
+    {
+        if (selector == IModularAccount.execute.selector) {
+            (address target,, bytes memory data) = abi.decode(callDataWithoutSelector, (address, uint256, bytes));
             _checkCallPermission(entityId, msg.sender, target, data);
-        } else if (bytes4(callData[:4]) == IModularAccount.executeBatch.selector) {
-            Call[] memory calls = abi.decode(callData[4:], (Call[]));
+        } else if (selector == IModularAccount.executeBatch.selector) {
+            Call[] memory calls = abi.decode(callDataWithoutSelector, (Call[]));
 
             for (uint256 i = 0; i < calls.length; ++i) {
                 _checkCallPermission(entityId, msg.sender, calls[i].target, calls[i].data);

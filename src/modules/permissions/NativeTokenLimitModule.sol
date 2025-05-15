@@ -95,7 +95,7 @@ contract NativeTokenLimitModule is ModuleBase, IExecutionHookModule, IValidation
         override
         returns (bytes memory)
     {
-        (bytes4 selector, bytes memory callData) = _getSelectorAndCalldata(data);
+        (bytes4 selector, bytes memory callData) = _executionPhaseGetSelectorAndCalldata(data);
 
         uint256 value;
         // Get value being sent

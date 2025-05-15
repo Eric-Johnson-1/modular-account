@@ -27,6 +27,8 @@ import {
     ValidationConfigLib
 } from "@erc6900/reference-implementation/libraries/ValidationConfigLib.sol";
 import {EntryPoint} from "@eth-infinitism/account-abstraction/core/EntryPoint.sol";
+
+import {IAccountExecute} from "@eth-infinitism/account-abstraction/interfaces/IAccountExecute.sol";
 import {PackedUserOperation} from "@eth-infinitism/account-abstraction/interfaces/PackedUserOperation.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -70,6 +72,7 @@ abstract contract AccountTestBase is OptimizedTest, ModuleSignatureUtils {
 
     ModuleEntity internal _signerValidation;
     uint256 internal _revertSnapshot;
+    bool internal _wrapWithExecuteUserOp;
 
     // Re-declare the constant to prevent derived test contracts from having to import it
     uint32 public constant TEST_DEFAULT_VALIDATION_ENTITY_ID = EXT_CONST_TEST_DEFAULT_VALIDATION_ENTITY_ID;
@@ -82,12 +85,47 @@ abstract contract AccountTestBase is OptimizedTest, ModuleSignatureUtils {
         // This should be overriden when needed and will be called again by the `withSMATest` modifier.
     }
 
+    modifier withSMATestAndExecuteUserOpWrapping() {
+        // Plain, non-sma test
+        _;
+
+        vm.revertToState(_revertSnapshot);
+        _switchToSMA();
+        setUp();
+        _;
+
+        // executeUserOp, non-sma test
+        vm.revertToState(_revertSnapshot);
+        _wrapWithExecuteUserOp = true;
+        setUp();
+        _;
+
+        // executeUserOp, sma test
+        vm.revertToState(_revertSnapshot);
+        _switchToSMA();
+        _wrapWithExecuteUserOp = true;
+        setUp();
+        _;
+    }
+
     modifier withSMATest() {
+        // Plain, non-sma test
+        _;
+
+        vm.revertToState(_revertSnapshot);
+        _switchToSMA();
+        setUp();
+
+        // Plain, sma test
+        _;
+    }
+
+    modifier withExecuteUserOpWrapping() {
         _;
 
         vm.revertToState(_revertSnapshot);
 
-        _switchToSMA();
+        _wrapWithExecuteUserOp = true;
 
         setUp();
 
@@ -137,19 +175,23 @@ abstract contract AccountTestBase is OptimizedTest, ModuleSignatureUtils {
     }
 
     function _runExecUserOp(address target, bytes memory callData) internal {
-        _runUserOp(abi.encodeCall(IModularAccount.execute, (target, 0, callData)));
+        bytes memory encodedCallData = abi.encodeCall(IModularAccount.execute, (target, 0, callData));
+        _runUserOp(encodedCallData);
     }
 
     function _runExecUserOp(address target, bytes memory callData, bytes memory revertReason) internal {
-        _runUserOp(abi.encodeCall(IModularAccount.execute, (target, 0, callData)), revertReason);
+        bytes memory encodedCallData = abi.encodeCall(IModularAccount.execute, (target, 0, callData));
+        _runUserOp(encodedCallData, revertReason);
     }
 
     function _runExecBatchUserOp(Call[] memory calls) internal {
-        _runUserOp(abi.encodeCall(IModularAccount.executeBatch, (calls)));
+        bytes memory encodedCallData = abi.encodeCall(IModularAccount.executeBatch, (calls));
+        _runUserOp(encodedCallData);
     }
 
     function _runExecBatchUserOp(Call[] memory calls, bytes memory revertReason) internal {
-        _runUserOp(abi.encodeCall(IModularAccount.executeBatch, (calls)), revertReason);
+        bytes memory encodedCallData = abi.encodeCall(IModularAccount.executeBatch, (calls));
+        _runUserOp(encodedCallData, revertReason);
     }
 
     function _runUserOp(bytes memory callData) internal {
@@ -167,6 +209,10 @@ abstract contract AccountTestBase is OptimizedTest, ModuleSignatureUtils {
         bytes memory callData,
         bytes memory expectedRevertData
     ) internal {
+        if (_wrapWithExecuteUserOp) {
+            callData = abi.encodePacked(IAccountExecute.executeUserOp.selector, callData);
+        }
+        
         PackedUserOperation memory userOp = PackedUserOperation({
             sender: account,
             nonce: _encodeNextNonce(account, _signerValidation, true),
