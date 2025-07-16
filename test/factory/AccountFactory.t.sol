@@ -19,6 +19,8 @@ pragma solidity ^0.8.26;
 
 import {ModularAccount} from "../../src/account/ModularAccount.sol";
 
+import {WebAuthnFactory} from "../../src/factory/WebAuthnFactory.sol";
+import {WebAuthnValidationModule} from "../../src/modules/validation/WebAuthnValidationModule.sol";
 import {AccountTestBase} from "../utils/AccountTestBase.sol";
 import {TEST_DEFAULT_VALIDATION_ENTITY_ID} from "../utils/TestConstants.sol";
 
@@ -29,6 +31,14 @@ contract AccountFactoryTest is AccountTestBase {
     uint256 internal _ownerX = 1;
     uint256 internal _ownerY = 2;
 
+    WebAuthnFactory webAuthnFactory;
+
+    function setUp() public override {
+        address webAuthnModule = address(new WebAuthnValidationModule());
+
+        webAuthnFactory = new WebAuthnFactory(entryPoint, accountImplementation, webAuthnModule, factoryOwner);
+    }
+
     function test_createAccount() public withSMATest {
         ModularAccount account = factory.createAccount(address(this), 100, TEST_DEFAULT_VALIDATION_ENTITY_ID);
 
@@ -37,7 +47,7 @@ contract AccountFactoryTest is AccountTestBase {
 
     function test_createWebAuthnAccount() public {
         ModularAccount account =
-            factory.createWebAuthnAccount(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID);
+            webAuthnFactory.createWebAuthnAccount(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID);
 
         assertEq(address(account.entryPoint()), address(entryPoint));
     }
@@ -56,16 +66,18 @@ contract AccountFactoryTest is AccountTestBase {
 
     function test_createWebAuthnAccountAndGetAddress() public {
         ModularAccount account =
-            factory.createWebAuthnAccount(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID);
+            webAuthnFactory.createWebAuthnAccount(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID);
 
         assertEq(
             address(account),
-            address(factory.createWebAuthnAccount(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID))
+            address(
+                webAuthnFactory.createWebAuthnAccount(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID)
+            )
         );
 
         assertEq(
             address(account),
-            address(factory.getAddressWebAuthn(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID))
+            address(webAuthnFactory.getAddressWebAuthn(_ownerX, _ownerY, 100, TEST_DEFAULT_VALIDATION_ENTITY_ID))
         );
     }
 
@@ -109,5 +121,17 @@ contract AccountFactoryTest is AccountTestBase {
         vm.prank(factoryOwner);
         factory.withdraw(payable(address(this)), address(erc20), 10 ether); // amount = balance if native currency
         assertEq(address(factory).balance, 0);
+    }
+
+    function test_fail_createWebAuthnAccountWithoutAccountImpl() public {
+        address webAuthnModule = address(new WebAuthnValidationModule());
+
+        vm.expectRevert(WebAuthnFactory.NoCodeAccountImpl.selector);
+        new WebAuthnFactory(entryPoint, ModularAccount(payable(0)), webAuthnModule, factoryOwner);
+    }
+
+    function test_fail_createWebAuthnAccountWithoutModuleImpl() public {
+        vm.expectRevert(WebAuthnFactory.NoCodeWebAuthnModule.selector);
+        new WebAuthnFactory(entryPoint, accountImplementation, address(0), factoryOwner);
     }
 }

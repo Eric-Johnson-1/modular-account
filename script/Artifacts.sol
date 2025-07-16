@@ -8,6 +8,7 @@ import {SemiModularAccount7702} from "../src/account/SemiModularAccount7702.sol"
 import {SemiModularAccountBytecode} from "../src/account/SemiModularAccountBytecode.sol";
 import {SemiModularAccountStorageOnly} from "../src/account/SemiModularAccountStorageOnly.sol";
 import {AccountFactory} from "../src/factory/AccountFactory.sol";
+import {WebAuthnFactory} from "../src/factory/WebAuthnFactory.sol";
 import {ExecutionInstallDelegate} from "../src/helpers/ExecutionInstallDelegate.sol";
 import {AllowlistModule} from "../src/modules/permissions/AllowlistModule.sol";
 import {NativeTokenLimitModule} from "../src/modules/permissions/NativeTokenLimitModule.sol";
@@ -51,6 +52,18 @@ abstract contract Artifacts {
         );
     }
 
+    function _getWebAuthnFactoryInitcode(
+        IEntryPoint entryPoint,
+        ModularAccount accountImpl,
+        address webAuthnValidationModule,
+        address owner
+    ) internal pure returns (bytes memory) {
+        return bytes.concat(
+            type(WebAuthnFactory).creationCode,
+            abi.encode(entryPoint, accountImpl, webAuthnValidationModule, owner)
+        );
+    }
+
     function _deployAccountFactory(
         bytes32 salt,
         IEntryPoint entryPoint,
@@ -70,6 +83,16 @@ abstract contract Artifacts {
                 owner
             )
         );
+    }
+
+    function _deployWebAuthnFactory(
+        bytes32 salt,
+        IEntryPoint entryPoint,
+        ModularAccount accountImpl,
+        address webAuthnValidationModule,
+        address owner
+    ) internal returns (address) {
+        return address(new WebAuthnFactory{salt: salt}(entryPoint, accountImpl, webAuthnValidationModule, owner));
     }
 
     function _getAllowlistModuleInitcode() internal pure returns (bytes memory) {
